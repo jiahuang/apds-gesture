@@ -4,9 +4,8 @@ var Queue = require('sync-queue')
 var q = new Queue();
 
 var I2C_ADDR = 0x39
-  , GESTURE_THRESHOLD_OUT = 10
-  , GESTURE_SENSITIVITY_1 = 50/100
-  , GESTURE_SENSITIVITY_2 = 20
+  , GESTURE_THRESHOLD_OUT = 20
+  , GESTURE_SENSITIVITY = 0.8//0.5
   , ENABLE = 0x80
   , ATIME = 0x81
   , WTIME = 0x83
@@ -125,34 +124,10 @@ GestureSensor.prototype.setup = function(callback) {
       self._writeRegister([GCONF2, 0x41], q.next);
     });
 
-    // set gesture offsets (up, down, left, right)
-    // q.place(function(){
-    //   self._writeRegister([GOFFSET_R, 0], q.next);
-    // });
-    // q.place(function(){
-    //   self._writeRegister([GOFFSET_L, 0], q.next);
-    // });
-    // q.place(function(){
-    //   self._writeRegister([GOFFSET_U, 0], q.next);
-    // });
-    // q.place(function(){
-    //   self._writeRegister([GOFFSET_D, 0], q.next);
-    // });
-
     // set gpulse (pulse count & length)
     q.place(function(){
       self._writeRegister([GPULSE, 0xC9], q.next);
     });
-
-    // set gconf3 (gesture dimension select)
-    // q.place(function(){
-    //   self._writeRegister([GCONF3, 0], q.next);
-    // });
-
-    // disable gesture interrupts
-    // q.place(function(){
-    //   self._writeRegister([GCONF4, 0], q.next);
-    // });
 
     // callback setup
     q.place(function(){
@@ -180,28 +155,12 @@ GestureSensor.prototype.enable = function(callback){
     self._writeRegister([GCONF4, 0x01], q.next);
   });
 
-  // enable power, wait, proximity, and gesture
-  // 01001101 = 0x4D
   q.place(function(){
     self.resetGesture();
     self._writeRegister([ENABLE, 0x4D], callback);
   });
 
 }
-
-// GestureSensor.prototype.readFIFO = function(length, callback){
-//   var self = this;
-//   self._readRegister([GFIFO_U], 4*length, function(err, data){
-//     self.fifoData = data;
-//     console.log("fifo data", self.fifoData);
-//     // length = length - 1;
-//     // if (length <= 0) {
-//       callback();
-//     // } else {
-//       // self.readFIFO(length, callback);
-//     // }
-//   });
-// }
 
 GestureSensor.prototype.processGesture = function(length, callback){
   var self = this;
@@ -210,10 +169,12 @@ GestureSensor.prototype.processGesture = function(length, callback){
 
   // get first and last values above threshold
   for(var i = 0; i<length; i++){
+
+
     if (self.fifoData['up'][i] > GESTURE_THRESHOLD_OUT
-      || self.fifoData['down'][i] > GESTURE_THRESHOLD_OUT
-      || self.fifoData['left'][i] > GESTURE_THRESHOLD_OUT
-      || self.fifoData['right'][i] > GESTURE_THRESHOLD_OUT) {
+      && self.fifoData['down'][i] > GESTURE_THRESHOLD_OUT
+      && self.fifoData['left'][i] > GESTURE_THRESHOLD_OUT
+      && self.fifoData['right'][i] > GESTURE_THRESHOLD_OUT) {
 
       if (start == 0){
         start = i;
@@ -228,7 +189,6 @@ GestureSensor.prototype.processGesture = function(length, callback){
 
   if (start == 0 || end == 0) {
     // if either is 0 then no values passed threshold
-    console.log("no valid gestures");
     return callback();
   }
 
@@ -251,41 +211,34 @@ GestureSensor.prototype.processGesture = function(length, callback){
   // console.log("gesture_ud_diff", self.gesture_ud_diff, "gesture_lr_diff", self.gesture_lr_diff);
   self.dir = {'up': 0, 'left': 0};
 
-  if (self.gesture_ud_diff >= GESTURE_SENSITIVITY_1) {
-    // console.log("DOWN");
+  if (self.gesture_ud_diff >= GESTURE_SENSITIVITY) {
     self.dir['up'] = -1;
-
-  } else if (self.gesture_ud_diff <= -GESTURE_SENSITIVITY_1){
-    // console.log("UP");
+  } else if (self.gesture_ud_diff <= -GESTURE_SENSITIVITY){
     self.dir['up'] = 1;
-
   } 
 
-  if (self.gesture_lr_diff >= GESTURE_SENSITIVITY_1){
-    // console.log("RIGHT");
+  if (self.gesture_lr_diff >= GESTURE_SENSITIVITY){
     self.dir['left'] = -1;
 
-  } else if (self.gesture_lr_diff <= -GESTURE_SENSITIVITY_1){
-    // console.log("LEFT");
+  } else if (self.gesture_lr_diff <= -GESTURE_SENSITIVITY){
     self.dir['left'] = 1;
   }
 
   if (self.dir['up'] == -1 && self.dir['left'] == 0 ) {
     self.resetGesture();
-    console.log("DOWN")
+    self.emit('movement', 'down');
   } else if (self.dir['up'] == 1 && self.dir['left'] == 0 ) {
     self.resetGesture();
-
-    console.log("UP")
+    self.emit('movement', 'up');
   } else if (self.dir['up'] == 0 && self.dir['left'] == -1 ) {
     self.resetGesture();
-
-    console.log("RIGHT")
+    self.emit('movement', 'right');
   } else if (self.dir['up'] == 0 && self.dir['left'] == 1 ) {
     self.resetGesture();
-
-    console.log("LEFT")
-  } 
+    self.emit('movement', 'left');
+  // } else {
+    // console.log("nothing detected", self.dir);
+  }
   // console.log('START, up:', self.fifoData['up'][start]
   //   , 'down:', self.fifoData['down'][start]
   //   , 'left:', self.fifoData['left'][start]
@@ -295,8 +248,6 @@ GestureSensor.prototype.processGesture = function(length, callback){
   //   , 'down:', self.fifoData['down'][end]
   //   , 'left:', self.fifoData['left'][end]
   //   , 'right:', self.fifoData['right'][end])
-
-  
 
   callback();
 }
@@ -351,7 +302,7 @@ GestureSensor.prototype.readGesture = function(){
         });
       });
     } else {
-      console.log("fifo is not valid");
+      // console.log("fifo is not valid, got", data);
       self.readGesture();
     }
   })

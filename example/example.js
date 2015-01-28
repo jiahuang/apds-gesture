@@ -15,3 +15,7 @@ gesture.on('ready', function(){
 gesture.on('error', function (err){
   console.log("Error: ", err);
 });
+
+gesture.on('movement', function(dir){
+  console.log("Sensed movement", dir);
+})
