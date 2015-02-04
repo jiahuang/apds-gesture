@@ -131,7 +131,7 @@ GestureSensor.prototype.setup = function(callback) {
 
     // callback setup
     q.place(function(){
-      callback();
+      self.enable(callback);
     });
 
   });
@@ -198,17 +198,13 @@ GestureSensor.prototype.processGesture = function(length, callback){
   var ud_last = (self.fifoData['up'][end] - self.fifoData['down'][end])/(self.fifoData['up'][end] + self.fifoData['down'][end]);
   var lr_last = (self.fifoData['left'][end] - self.fifoData['right'][end])/(self.fifoData['left'][end] + self.fifoData['right'][end]);
 
-  // console.log("ud_first", ud_first, "lr_first", lr_first, "ud_last", ud_last, "lr_last", lr_last);
   // difference between ratios
   var ud_diff = ud_last - ud_first;
   var lr_diff = lr_last - lr_first;
 
-  // console.log("ud_diff", typeof(ud_diff), "lr_diff", lr_diff);
-
   self.gesture_ud_diff = self.gesture_ud_diff + ud_diff;
   self.gesture_lr_diff = self.gesture_lr_diff + lr_diff;
 
-  // console.log("gesture_ud_diff", self.gesture_ud_diff, "gesture_lr_diff", self.gesture_lr_diff);
   self.dir = {'up': 0, 'left': 0};
 
   if (self.gesture_ud_diff >= GESTURE_SENSITIVITY) {
@@ -236,19 +232,8 @@ GestureSensor.prototype.processGesture = function(length, callback){
   } else if (self.dir['up'] == 0 && self.dir['left'] == 1 ) {
     self.resetGesture();
     self.emit('movement', 'left');
-  // } else {
-    // console.log("nothing detected", self.dir);
   }
-  // console.log('START, up:', self.fifoData['up'][start]
-  //   , 'down:', self.fifoData['down'][start]
-  //   , 'left:', self.fifoData['left'][start]
-  //   , 'right:', self.fifoData['right'][start])
-
-  // console.log('END, up:', self.fifoData['up'][end]
-  //   , 'down:', self.fifoData['down'][end]
-  //   , 'left:', self.fifoData['left'][end]
-  //   , 'right:', self.fifoData['right'][end])
-
+  
   callback();
 }
 
@@ -275,22 +260,21 @@ GestureSensor.prototype.readGesture = function(){
       q.place(function(){
         self._readRegister([GFLVL], 1, function(err, data){
           fifoLength = data[0];
-          console.log("valid fifo length of", fifoLength);
+          if (self.debug) {
+            console.log("valid fifo length of", fifoLength);
+          }
           q.next();
         })
       })
 
       q.place(function(){
         self._readRegister([GFIFO_U], fifoLength*4, function(err, data){
-          // console.log("fifo data", data);
-          // self.fifoData = data;
           for(var i = 0; i<(fifoLength*4); i = i+4){
             self.fifoData['up'].push(data[i]);
             self.fifoData['down'].push(data[i+1]);
             self.fifoData['left'].push(data[i+2]);
             self.fifoData['right'].push(data[i+3]);
           }
-          // console.log("fifo data", self.fifoData);
           q.next();
         });
       });
@@ -302,7 +286,6 @@ GestureSensor.prototype.readGesture = function(){
         });
       });
     } else {
-      // console.log("fifo is not valid, got", data);
       self.readGesture();
     }
   })
@@ -311,6 +294,8 @@ GestureSensor.prototype.readGesture = function(){
 // exports
 exports.GestureSensor = GestureSensor;
 
-exports.use = function (hardware) {
+exports.use = function (hardware, opts) {
+  GESTURE_THRESHOLD_OUT = opts.threshold ? opts.threshold : 20;
+  GESTURE_SENSITIVITY = opts.sensitivity ? opts.sensitivity : 0.8;
   return new GestureSensor(hardware);
 };

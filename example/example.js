@@ -1,14 +1,19 @@
 // example for the apds gesture sensor
 var tessel = require('tessel');
 var GestureLib = require('../');
-var gesture = GestureLib.use(tessel.port['A']);
+var G_THRESHOLD = 20
+  , G_SENSITIVITY = 0.65//0.5
+  ;
+
+var gesture = GestureLib.use(tessel.port['A'], 
+	{'threshold': G_THRESHOLD, 'sensitivity': G_SENSITIVITY});
+
+gesture.debug = true;
 
 gesture.on('ready', function(){
   console.log("found a gesture sensor");
   gesture.setup(function(){
-    gesture.enable(function(){
-      gesture.readGesture();
-    });
+     gesture.readGesture();
   });
 });
 
@@ -18,4 +23,4 @@ gesture.on('error', function (err){
 
 gesture.on('movement', function(dir){
   console.log("Sensed movement", dir);
-})
+});
