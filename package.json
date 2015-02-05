@@ -1,6 +1,6 @@
 {
   "name": "apds-gesture",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "driver for the apds gesture controller ic",
   "main": "index.js",
   "directories": {
@@ -8,6 +8,10 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jiahuang/apds-gesture"
   },
   "author": "jiahuang",
   "license": "MIT",
