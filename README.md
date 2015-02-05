@@ -1,5 +1,7 @@
 #APDS Gesture control driver
 
+![demo](https://s3.amazonaws.com/technicalmachine-assets/gifs/apds.gif)
+
 Example usage:
 
 ```js
